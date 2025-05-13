@@ -18,7 +18,16 @@ class AnimeRealCls():
         self.model = self.load_local_onnx_model(f'{model_dir}/model.onnx')
         with open(f'{model_dir}/meta.json', 'r') as f:
             self.labels = json.load(f)['labels']
-    
+            
+    def load_local_onnx_model(self, model_path: str) -> InferenceSession:
+        """加载ONNX模型"""
+        options = SessionOptions()
+        options.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
+        try:
+            return InferenceSession(model_path, options)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load ONNX model: {str(e)}")
+
     def _load_image(self, image_input: Union[str, bytes]) -> Image.Image:
         """加载图片，支持本地路径和HTTP URL"""
         try:
@@ -39,8 +48,13 @@ class AnimeRealCls():
     def _img_encode(self, image_input: Union[str, bytes], size=(384, 384), normalize=(0.5, 0.5)) -> np.ndarray:
         """图片编码预处理"""
         try:
-            image = self._load_image(image_input)
+            t1 = time.time()
+            image = self._load_image(image_input) # 2.6596295833587646
+            t2 = time.time()
+            print("t2-t1: ", t2-t1)
             image = load_image(image, mode='RGB')
+            t3 = time.time()
+            print("t3-t2: ", t3-t2)
             image = image.resize(size, Image.BILINEAR)
             data = rgb_encode(image, order_='CHW')
             
@@ -49,25 +63,22 @@ class AnimeRealCls():
                 mean = np.asarray([mean_]).reshape((-1, 1, 1))
                 std = np.asarray([std_]).reshape((-1, 1, 1))
                 data = (data - mean) / std
-                
+            t4 = time.time()
+            print("t4-t3: ", t4-t3)
             return data.astype(np.float32)
         except Exception as e:
             raise ValueError(f"Image processing failed: {str(e)}")
 
-    def load_local_onnx_model(self, model_path: str) -> InferenceSession:
-        """加载ONNX模型"""
-        options = SessionOptions()
-        options.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
-        try:
-            return InferenceSession(model_path, options)
-        except Exception as e:
-            raise RuntimeError(f"Failed to load ONNX model: {str(e)}")
-
     def __call__(self, image_input: Union[str, bytes]) -> str:
         """执行分类"""
         try:
+            t5 = time.time()
             input_ = self._img_encode(image_input, size=(384, 384))[None, ...]
-            output, = self.model.run(['output'], {'input': input_})
+            t6 = time.time()
+            print("t6-t5: ", t6-t5)
+            output, = self.model.run(['output'], {'input': input_}) # 0.09858536720275879
+            t7 = time.time()
+            print("t7-t6: ", t7-t6)
             values = dict(zip(self.labels, map(lambda x: x.item(), output[0])))
             anime_prob, real_prob = values['anime'], values['real']
             result = max(values, key=values.get)
