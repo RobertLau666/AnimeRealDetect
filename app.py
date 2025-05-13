@@ -1,0 +1,113 @@
+import json
+import numpy as np
+from PIL import Image
+import requests
+from io import BytesIO
+from typing import Union
+from imgutils.data import load_image, rgb_encode
+from onnxruntime import InferenceSession, SessionOptions, GraphOptimizationLevel
+import pandas as pd
+
+
+class AnimeRealCls():
+    def __init__(self, model_dir: str):
+        self.model = self.load_local_onnx_model(f'{model_dir}/model.onnx')
+        with open(f'{model_dir}/meta.json', 'r') as f:
+            self.labels = json.load(f)['labels']
+    
+    def _load_image(self, image_input: Union[str, bytes]) -> Image.Image:
+        """加载图片，支持本地路径和HTTP URL"""
+        try:
+            if isinstance(image_input, bytes):
+                # 如果是字节流
+                return Image.open(BytesIO(image_input))
+            elif image_input.startswith(('http://', 'https://')):
+                # 如果是HTTP URL
+                response = requests.get(image_input, timeout=10)
+                response.raise_for_status()
+                return Image.open(BytesIO(response.content))
+            else:
+                # 本地文件路径
+                return Image.open(image_input)
+        except Exception as e:
+            raise ValueError(f"Failed to load image: {str(e)}")
+
+    def _img_encode(self, image_input: Union[str, bytes], size=(384, 384), normalize=(0.5, 0.5)) -> np.ndarray:
+        """图片编码预处理"""
+        try:
+            image = self._load_image(image_input)
+            image = load_image(image, mode='RGB')
+            image = image.resize(size, Image.BILINEAR)
+            data = rgb_encode(image, order_='CHW')
+            
+            if normalize:
+                mean_, std_ = normalize
+                mean = np.asarray([mean_]).reshape((-1, 1, 1))
+                std = np.asarray([std_]).reshape((-1, 1, 1))
+                data = (data - mean) / std
+                
+            return data.astype(np.float32)
+        except Exception as e:
+            raise ValueError(f"Image processing failed: {str(e)}")
+
+    def load_local_onnx_model(self, model_path: str) -> InferenceSession:
+        """加载ONNX模型"""
+        options = SessionOptions()
+        options.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
+        try:
+            return InferenceSession(model_path, options)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load ONNX model: {str(e)}")
+
+    def __call__(self, image_input: Union[str, bytes]) -> str:
+        """执行分类"""
+        try:
+            input_ = self._img_encode(image_input, size=(384, 384))[None, ...]
+            output, = self.model.run(['output'], {'input': input_})
+            values = dict(zip(self.labels, map(lambda x: x.item(), output[0])))
+            print("Classification values:", values)
+            anime_prob, real_prob = values['anime'], values['real']
+            result = max(values, key=values.get)
+            return anime_prob, real_prob, result
+        except Exception as e:
+            raise RuntimeError(f"Classification failed: {str(e)}")
+
+if __name__ == "__main__":
+    # 初始化分类器
+    classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
+    
+    # 测试数据（包含本地路径和HTTP URL）
+    # test_inputs = [
+    #     "1.webp",  # 本地文件
+    #     "2.webp",
+    #     "3.webp",
+    #     # "https://example.com/image.jpg",  # HTTP URL
+    #     # b'...',  # 二进制数据（示例）
+    #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2110_28238288_1739099486934293155.webp?x-oss-process=image/resize,w_1080/format,webp",
+    #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28237810_1739013948135004916.webp?x-oss-process=image/resize,w_1080/format,webp",
+    #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28236856_1739010283114475558.webp?x-oss-process=image/resize,w_1080/format,webp",
+    #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28238074_1739014906353175139.webp?x-oss-process=image/resize,w_1080/format,webp",
+    # ]
+
+
+    # 1. 读取 CSV 文件
+    csv_path = 'data/input/ab实验真人-23个角色-character_id.csv'
+    df = pd.read_csv(csv_path)
+    test_inputs = df['img_url'].tolist()
+
+    anime_probs, real_probs, results = [], [], []
+    for input_data in test_inputs:
+        try:
+            anime_prob, real_prob, result = classifier(input_data)
+            anime_probs.append(anime_prob)
+            real_probs.append(real_prob)
+            results.append(result)
+        except Exception as e:
+            print(f"Error: {str(e)}")
+
+    df['anime_prob'] = anime_probs
+    df['real_prob'] = real_probs
+    df['result'] = results
+    output_filename = csv_path.replace('.csv', '_result.csv')
+    df.to_csv(output_filename, index=False)
+    print(f"Saved result to {output_filename}")
