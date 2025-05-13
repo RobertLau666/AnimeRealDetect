@@ -54,7 +54,8 @@ class AnimeRealCls():
                 return Image.open(BytesIO(image_input)).convert('RGB')
             elif isinstance(image_input, str) and image_input.startswith(('http://', 'https://')):
                 # HTTP 请求优化
-                with self.session.get(image_input, stream=True, timeout=5) as response:
+                # with self.session.get(image_input, stream=True, timeout=5) as response:
+                with self.session.get(image_input, stream=True, timeout=15) as response:
                     response.raise_for_status()
                     return Image.open(response.raw).convert('RGB')  # 直接用 raw 提高效率
             elif isinstance(image_input, str) and os.path.exists(image_input):
@@ -108,6 +109,7 @@ class AnimeRealCls():
 
 
 if __name__ == "__main__":
+    all_start_time = time.time()
     output_dir = 'data/my_test/output'
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
     
@@ -143,3 +145,6 @@ if __name__ == "__main__":
     output_filename = os.path.join(output_dir, f"{get_current_time()}_{os.path.splitext(os.path.basename(csv_path))[0]}_result.csv")
     df.to_csv(output_filename, index=False)
     print(f"Saved result to {output_filename}")
+
+    all_end_time = time.time()
+    print(f"inference.py\nall_cost_time: {all_end_time - all_start_time} len(test_inputs): {len(test_inputs)} each_cost_time: {(all_end_time - all_start_time)/len(test_inputs)}")
