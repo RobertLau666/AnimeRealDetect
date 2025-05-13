@@ -9,6 +9,8 @@ from onnxruntime import InferenceSession, SessionOptions, GraphOptimizationLevel
 import pandas as pd
 import time
 from tqdm import tqdm
+from utils import get_current_time
+import os
 
 
 class AnimeRealCls():
@@ -75,6 +77,7 @@ class AnimeRealCls():
 
 
 if __name__ == "__main__":
+    output_dir = 'data/my_test/output'
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
     
     # 测试数据（包含本地路径和HTTP URL）
@@ -106,6 +109,6 @@ if __name__ == "__main__":
             print(f"Error: {str(e)}")
 
     df[['anime_prob', 'real_prob', 'result', 'cost_time']] = list(zip(anime_probs, real_probs, results, cost_times))
-    output_filename = csv_path.replace('.csv', '_result.csv')
+    output_filename = os.path.join(output_dir, f"{get_current_time()}_{os.path.splitext(os.path.basename(csv_path))[0]}_result.csv")
     df.to_csv(output_filename, index=False)
     print(f"Saved result to {output_filename}")
