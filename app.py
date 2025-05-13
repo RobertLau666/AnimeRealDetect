@@ -7,6 +7,8 @@ from typing import Union
 from imgutils.data import load_image, rgb_encode
 from onnxruntime import InferenceSession, SessionOptions, GraphOptimizationLevel
 import pandas as pd
+import time
+from tqdm import tqdm
 
 
 class AnimeRealCls():
@@ -65,49 +67,45 @@ class AnimeRealCls():
             input_ = self._img_encode(image_input, size=(384, 384))[None, ...]
             output, = self.model.run(['output'], {'input': input_})
             values = dict(zip(self.labels, map(lambda x: x.item(), output[0])))
-            print("Classification values:", values)
             anime_prob, real_prob = values['anime'], values['real']
             result = max(values, key=values.get)
             return anime_prob, real_prob, result
         except Exception as e:
             raise RuntimeError(f"Classification failed: {str(e)}")
 
+
 if __name__ == "__main__":
-    # 初始化分类器
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
     
     # 测试数据（包含本地路径和HTTP URL）
     # test_inputs = [
-    #     "1.webp",  # 本地文件
+    #     "1.webp",
     #     "2.webp",
     #     "3.webp",
-    #     # "https://example.com/image.jpg",  # HTTP URL
-    #     # b'...',  # 二进制数据（示例）
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2110_28238288_1739099486934293155.webp?x-oss-process=image/resize,w_1080/format,webp",
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28237810_1739013948135004916.webp?x-oss-process=image/resize,w_1080/format,webp",
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28236856_1739010283114475558.webp?x-oss-process=image/resize,w_1080/format,webp",
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28238074_1739014906353175139.webp?x-oss-process=image/resize,w_1080/format,webp",
     # ]
 
-
-    # 1. 读取 CSV 文件
-    csv_path = 'data/input/ab实验真人-23个角色-character_id.csv'
+    csv_path = 'data/my_test/input/ab实验真人-23个角色-character_id.csv'
     df = pd.read_csv(csv_path)
     test_inputs = df['img_url'].tolist()
 
-    anime_probs, real_probs, results = [], [], []
-    for input_data in test_inputs:
+    anime_probs, real_probs, results, cost_times = [], [], [], []
+    for input_data in tqdm(test_inputs):
         try:
+            start_time = time.time()
             anime_prob, real_prob, result = classifier(input_data)
+            cost_time = time.time() - start_time
             anime_probs.append(anime_prob)
             real_probs.append(real_prob)
             results.append(result)
+            cost_times.append(cost_time)
         except Exception as e:
             print(f"Error: {str(e)}")
 
-    df['anime_prob'] = anime_probs
-    df['real_prob'] = real_probs
-    df['result'] = results
+    df[['anime_prob', 'real_prob', 'result', 'cost_time']] = list(zip(anime_probs, real_probs, results, cost_times))
     output_filename = csv_path.replace('.csv', '_result.csv')
     df.to_csv(output_filename, index=False)
     print(f"Saved result to {output_filename}")
