@@ -15,6 +15,7 @@ import os
 
 class AnimeRealCls():
     def __init__(self, model_dir: str):
+        self.session = requests.Session()  # Reuse session for HTTP requests
         self.model = self.load_local_onnx_model(f'{model_dir}/model.onnx')
         with open(f'{model_dir}/meta.json', 'r') as f:
             self.labels = json.load(f)['labels']
@@ -28,20 +29,39 @@ class AnimeRealCls():
         except Exception as e:
             raise RuntimeError(f"Failed to load ONNX model: {str(e)}")
 
+    # def _load_image(self, image_input: Union[str, bytes]) -> Image.Image:
+    #     """加载图片，支持本地路径和HTTP URL"""
+    #     try:
+    #         if isinstance(image_input, bytes):
+    #             # 如果是字节流
+    #             return Image.open(BytesIO(image_input))
+    #         elif image_input.startswith(('http://', 'https://')):
+    #             # 如果是HTTP URL
+    #             response = requests.get(image_input, timeout=10)
+    #             response.raise_for_status()
+    #             return Image.open(BytesIO(response.content))
+    #         else:
+    #             # 本地文件路径
+    #             return Image.open(image_input)
+    #     except Exception as e:
+    #         raise ValueError(f"Failed to load image: {str(e)}")
+
     def _load_image(self, image_input: Union[str, bytes]) -> Image.Image:
-        """加载图片，支持本地路径和HTTP URL"""
+        """加载图片，支持本地路径、HTTP URL 和字节流，优化速度"""
         try:
             if isinstance(image_input, bytes):
-                # 如果是字节流
-                return Image.open(BytesIO(image_input))
-            elif image_input.startswith(('http://', 'https://')):
-                # 如果是HTTP URL
-                response = requests.get(image_input, timeout=10)
-                response.raise_for_status()
-                return Image.open(BytesIO(response.content))
+                # 字节流，直接读取
+                return Image.open(BytesIO(image_input)).convert('RGB')
+            elif isinstance(image_input, str) and image_input.startswith(('http://', 'https://')):
+                # HTTP 请求优化
+                with self.session.get(image_input, stream=True, timeout=5) as response:
+                    response.raise_for_status()
+                    return Image.open(response.raw).convert('RGB')  # 直接用 raw 提高效率
+            elif isinstance(image_input, str) and os.path.exists(image_input):
+                # 本地路径直接读取
+                return Image.open(image_input).convert('RGB')
             else:
-                # 本地文件路径
-                return Image.open(image_input)
+                raise ValueError("Unsupported image input format.")
         except Exception as e:
             raise ValueError(f"Failed to load image: {str(e)}")
 
