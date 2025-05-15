@@ -28,9 +28,9 @@ if __name__ == "__main__":
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
 
     # 读取输入 CSV
-    csv_path = 'data/my_test/input/ab实验真人-23个角色-character_id.csv'
+    csv_path = 'data/my_test/input/2025年5月12日-未成年标注 - 工作表1_style_label.csv'
     df = pd.read_csv(csv_path)
-    test_inputs = df['img_url'].tolist()
+    test_inputs = df['image_path'].tolist()
 
     max_workers = 12  # 可根据机器调整
 
