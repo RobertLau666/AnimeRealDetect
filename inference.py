@@ -1,3 +1,7 @@
+"""
+本推理代码基于：https://huggingface.co/deepghs/anime_real_cls/tree/main/caformer_s36_v1.3_fixed
+"""
+
 import json
 import numpy as np
 from PIL import Image

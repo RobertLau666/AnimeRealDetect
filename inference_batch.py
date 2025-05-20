@@ -23,18 +23,14 @@ if __name__ == "__main__":
 
     output_dir = 'data/my_test/output'
     os.makedirs(output_dir, exist_ok=True)
-
-    # 初始化分类器
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
 
-    # 读取输入 CSV
     csv_path = 'data/my_test/input/2025年5月12日-未成年标注 - 工作表1_style_label.csv'
     df = pd.read_csv(csv_path)
     test_inputs = df['image_path'].tolist()
 
-    max_workers = 12  # 可根据机器调整
+    max_workers = 12
 
-    # 并发执行分类任务
     url_to_result = {}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(process_single_input, classifier, url): url for url in test_inputs}
@@ -52,7 +48,6 @@ if __name__ == "__main__":
         results.append(result)
         cost_times.append(cost_time)
 
-    # 写入结果
     df['anime_prob'] = anime_probs
     df['real_prob'] = real_probs
     df['result'] = results
