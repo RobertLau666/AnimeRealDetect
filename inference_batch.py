@@ -25,7 +25,7 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
 
-    csv_path = 'data/my_test/input/2025年5月12日-未成年标注 - 工作表1_style_label.csv'
+    csv_path = '/data/code/chenyu.liu/others/AnimeRealDetect/data/my_test/input/测试1.csv'
     df = pd.read_csv(csv_path)
     test_inputs = df['image_path'].tolist()
 

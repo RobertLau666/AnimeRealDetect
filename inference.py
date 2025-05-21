@@ -56,15 +56,15 @@ class AnimeRealCls():
             if isinstance(image_input, bytes):
                 # 字节流，直接读取
                 return Image.open(BytesIO(image_input)).convert('RGB')
-            elif isinstance(image_input, str) and image_input.startswith(('http://', 'https://')):
-                # HTTP 请求优化
-                # with self.session.get(image_input, stream=True, timeout=5) as response:
-                with self.session.get(image_input, stream=True, timeout=15) as response:
-                    response.raise_for_status()
-                    return Image.open(response.raw).convert('RGB')  # 直接用 raw 提高效率
-            elif isinstance(image_input, str) and os.path.exists(image_input):
-                # 本地路径直接读取
-                return Image.open(image_input).convert('RGB')
+            elif isinstance(image_input, str):
+                if image_input.startswith(('http://', 'https://')):
+                    # HTTP 请求优化
+                    with self.session.get(image_input, stream=True, timeout=30) as response:
+                        response.raise_for_status()
+                        return Image.open(response.raw).convert('RGB')  # 直接用 raw 提高效率
+                elif os.path.exists(image_input):
+                    # 本地路径直接读取
+                    return Image.open(image_input).convert('RGB')
             else:
                 raise ValueError("Unsupported image input format.")
         except Exception as e:
@@ -73,23 +73,15 @@ class AnimeRealCls():
     def _img_encode(self, image_input: Union[str, bytes], size=(384, 384), normalize=(0.5, 0.5)) -> np.ndarray:
         """图片编码预处理"""
         try:
-            t1 = time.time()
-            image = self._load_image(image_input) # 2.6596295833587646
-            t2 = time.time()
-            print("t2-t1: ", t2-t1)
+            image = self._load_image(image_input)
             image = load_image(image, mode='RGB')
-            t3 = time.time()
-            print("t3-t2: ", t3-t2)
             image = image.resize(size, Image.BILINEAR)
             data = rgb_encode(image, order_='CHW')
-            
             if normalize:
                 mean_, std_ = normalize
                 mean = np.asarray([mean_]).reshape((-1, 1, 1))
                 std = np.asarray([std_]).reshape((-1, 1, 1))
                 data = (data - mean) / std
-            t4 = time.time()
-            print("t4-t3: ", t4-t3)
             return data.astype(np.float32)
         except Exception as e:
             raise ValueError(f"Image processing failed: {str(e)}")
@@ -97,13 +89,8 @@ class AnimeRealCls():
     def __call__(self, image_input: Union[str, bytes]) -> str:
         """执行分类"""
         try:
-            t5 = time.time()
             input_ = self._img_encode(image_input, size=(384, 384))[None, ...]
-            t6 = time.time()
-            print("t6-t5: ", t6-t5)
-            output, = self.model.run(['output'], {'input': input_}) # 0.09858536720275879
-            t7 = time.time()
-            print("t7-t6: ", t7-t6)
+            output, = self.model.run(['output'], {'input': input_})
             values = dict(zip(self.labels, map(lambda x: x.item(), output[0])))
             anime_prob, real_prob = values['anime'], values['real']
             result = max(values, key=values.get)
