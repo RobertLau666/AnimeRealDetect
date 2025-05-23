@@ -123,9 +123,9 @@ if __name__ == "__main__":
     
     # 测试数据（包含本地路径和HTTP URL）
     # test_inputs = [
-    #     "1.webp",
-    #     "2.webp",
-    #     "3.webp",
+    #     "data/my_test/input/1.webp",
+    #     "data/my_test/input/2.webp",
+    #     "data/my_test/input/3.webp",
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2110_28238288_1739099486934293155.webp?x-oss-process=image/resize,w_1080/format,webp",
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28237810_1739013948135004916.webp?x-oss-process=image/resize,w_1080/format,webp",
     #     "https://ali-us-sync-image.oss-us-east-1.aliyuncs.com/linky_imggen_ugc/729183_2113_28236856_1739010283114475558.webp?x-oss-process=image/resize,w_1080/format,webp",
