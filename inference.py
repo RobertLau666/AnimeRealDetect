@@ -9,7 +9,7 @@ import requests
 from io import BytesIO
 from typing import Union
 from imgutils.data import load_image, rgb_encode
-from onnxruntime import InferenceSession, SessionOptions, GraphOptimizationLevel
+from onnxruntime import InferenceSession, SessionOptions, GraphOptimizationLevel # pip install onnxruntime-gpu; pip show onnxruntime-gpu
 import pandas as pd
 import time
 from tqdm import tqdm
@@ -21,15 +21,32 @@ class AnimeRealCls():
     def __init__(self, model_dir: str):
         self.session = requests.Session()  # Reuse session for HTTP requests
         self.model = self.load_local_onnx_model(f'{model_dir}/model.onnx')
+        print("Using providers:", self.model.get_providers()) # 如果输出Using providers: ['CUDAExecutionProvider', 'CPUExecutionProvider'] 说明你已经成功启用 GPU 推理。
         with open(f'{model_dir}/meta.json', 'r') as f:
             self.labels = json.load(f)['labels']
-            
+    
+    # CPU      
+    # def load_local_onnx_model(self, model_path: str) -> InferenceSession:
+    #     """加载ONNX模型"""
+    #     options = SessionOptions()
+    #     options.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
+    #     try:
+    #         return InferenceSession(model_path, options)
+    #     except Exception as e:
+    #         raise RuntimeError(f"Failed to load ONNX model: {str(e)}")
+
+    # GPU
     def load_local_onnx_model(self, model_path: str) -> InferenceSession:
-        """加载ONNX模型"""
+        """加载ONNX模型，支持GPU（CUDA）推理"""
         options = SessionOptions()
         options.graph_optimization_level = GraphOptimizationLevel.ORT_ENABLE_ALL
         try:
-            return InferenceSession(model_path, options)
+            # 优先使用 GPU，如果没有 GPU 再回退到 CPU
+            return InferenceSession(
+                model_path,
+                providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+                sess_options=options
+            )
         except Exception as e:
             raise RuntimeError(f"Failed to load ONNX model: {str(e)}")
 

@@ -25,25 +25,25 @@ def process_single_input(classifier, input_data):
         print(f"Error processing {input_data}: {str(e)}")
         return None, None, 'error', 0.0
 
-def run_inference(csv_file):
+def run_inference(xlsx_file):
+    original_filename = os.path.basename(xlsx_file.name)
     all_start_time = time.time()
 
-    # 自动检测编码
-    encoding = detect_encoding(csv_file.name)
-    df = pd.read_csv(csv_file.name, encoding=encoding)
+    # 读取 Excel 文件（不再检测编码）
+    df = pd.read_excel(xlsx_file.name)
     if 'image_path' in df.columns:
         test_inputs = df['image_path'].tolist()
     elif 'image_url' in df.columns:
         test_inputs = df['image_url'].tolist()
     else:
-        raise ValueError("Neither 'image_path' nor 'image_url' found in DataFrame columns.")
+        raise ValueError("Neither 'image_path' nor 'image_url' found in Excel columns.")
 
     output_dir = 'data/my_test/output'
     os.makedirs(output_dir, exist_ok=True)
 
     classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
 
-    max_workers = 12
+    max_workers = 30
     url_to_result = {}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(process_single_input, classifier, url): url for url in test_inputs}
@@ -67,17 +67,17 @@ def run_inference(csv_file):
 
     output_filename = os.path.join(
         output_dir,
-        f"{get_current_time()}_result.csv"
+        f"{get_current_time()}_{original_filename}_result.xlsx"
     )
-    df.to_csv(output_filename, index=False)
+    df.to_excel(output_filename, index=False)
 
     all_end_time = time.time()
     print(f"all_cost_time: {all_end_time - all_start_time:.2f}s, each_cost_time: {(all_end_time - all_start_time)/len(test_inputs):.2f}s")
 
     return output_filename
 
-def gradio_interface(csv_file):
-    output_file = run_inference(csv_file)
+def gradio_interface(xlsx_file):
+    output_file = run_inference(xlsx_file)
     return output_file
 
 
@@ -88,9 +88,9 @@ if __name__ == "__main__":
 
     iface = gr.Interface(
         fn=gradio_interface,
-        inputs=gr.File(label="上传 CSV 文件（包含 image_path 或者 image_url 列）"),
-        outputs=gr.File(label="下载结果 CSV"),
+        inputs=gr.File(label="上传 Excel 文件（包含 image_path 或 image_url 列）", file_types=[".xlsx"]),
+        outputs=gr.File(label="下载结果 Excel 文件"),
         title="Anime vs Real 分类器（批量推理）",
-        description="上传一个包含 image_path 或者 image_url 列的 CSV 文件，点击按钮开始推理，完成后可下载结果文件。",
+        description="上传一个包含 image_path 或 image_url 列的 .xlsx 文件，点击按钮开始推理，完成后可下载结果文件。",
     )
     iface.launch(server_port=args.server_port, share=True)
