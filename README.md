@@ -10,6 +10,15 @@ python finetune.py
 ```
 
 ## Test
+### simple inference
 ```
-python test_by_csv.py
+python inference.py
+```
+### file batch inference
+```
+python inference_batch.py
+```
+### file batch gradio inference
+```
+python inference_batch_gradio.py --server_port 7881
 ```

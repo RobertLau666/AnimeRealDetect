@@ -9,7 +9,6 @@ from utils import get_current_time
 import chardet
 import argparse
 
-
 def detect_encoding(file_path):
     with open(file_path, 'rb') as f:
         result = chardet.detect(f.read(10000))
@@ -25,18 +24,27 @@ def process_single_input(classifier, input_data):
         print(f"Error processing {input_data}: {str(e)}")
         return None, None, 'error', 0.0
 
-def run_inference(xlsx_file):
-    original_filename = os.path.basename(xlsx_file.name)
+def run_inference(uploaded_file):
+    original_filename = os.path.basename(uploaded_file.name)
     all_start_time = time.time()
 
-    # 读取 Excel 文件（不再检测编码）
-    df = pd.read_excel(xlsx_file.name)
+    # 判断文件扩展名
+    ext = os.path.splitext(original_filename)[-1].lower()
+
+    if ext == ".csv":
+        encoding = detect_encoding(uploaded_file.name)
+        df = pd.read_csv(uploaded_file.name, encoding=encoding)
+    elif ext == ".xlsx":
+        df = pd.read_excel(uploaded_file.name)
+    else:
+        raise ValueError("只支持 .csv 或 .xlsx 格式的文件。")
+
     if 'image_path' in df.columns:
         test_inputs = df['image_path'].tolist()
     elif 'image_url' in df.columns:
         test_inputs = df['image_url'].tolist()
     else:
-        raise ValueError("Neither 'image_path' nor 'image_url' found in Excel columns.")
+        raise ValueError("文件中缺少 image_path 或 image_url 列。")
 
     output_dir = 'data/my_test/output'
     os.makedirs(output_dir, exist_ok=True)
@@ -65,9 +73,10 @@ def run_inference(xlsx_file):
     df['result'] = results
     df['cost_time'] = cost_times
 
+    # 保存为 xlsx 文件（无论上传的是 csv 还是 xlsx）
     output_filename = os.path.join(
         output_dir,
-        f"{get_current_time()}_{original_filename}_result.xlsx"
+        f"{get_current_time()}_{original_filename.replace('.csv', '').replace('.xlsx', '')}_result.xlsx"
     )
     df.to_excel(output_filename, index=False)
 
@@ -76,10 +85,8 @@ def run_inference(xlsx_file):
 
     return output_filename
 
-def gradio_interface(xlsx_file):
-    output_file = run_inference(xlsx_file)
-    return output_file
-
+def gradio_interface(uploaded_file):
+    return run_inference(uploaded_file)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -88,9 +95,9 @@ if __name__ == "__main__":
 
     iface = gr.Interface(
         fn=gradio_interface,
-        inputs=gr.File(label="上传 Excel 文件（包含 image_path 或 image_url 列）", file_types=[".xlsx"]),
+        inputs=gr.File(label="上传 CSV 或 Excel 文件（包含 image_path 或 image_url 列）", file_types=[".csv", ".xlsx"]),
         outputs=gr.File(label="下载结果 Excel 文件"),
         title="Anime vs Real 分类器（批量推理）",
-        description="上传一个包含 image_path 或 image_url 列的 .xlsx 文件，点击按钮开始推理，完成后可下载结果文件。",
+        description="上传一个包含 image_path 或 image_url 列的 .csv 或 .xlsx 文件，点击按钮开始推理，完成后可下载结果文件（统一保存为 .xlsx）。",
     )
     iface.launch(server_port=args.server_port, share=True)
