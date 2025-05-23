@@ -27,7 +27,12 @@ if __name__ == "__main__":
 
     csv_path = '/data/code/chenyu.liu/others/AnimeRealDetect/data/my_test/input/测试1.csv'
     df = pd.read_csv(csv_path)
-    test_inputs = df['image_path'].tolist()
+    if 'image_path' in df.columns:
+        test_inputs = df['image_path'].tolist()
+    elif 'image_url' in df.columns:
+        test_inputs = df['image_url'].tolist()
+    else:
+        raise ValueError("Neither 'image_path' nor 'image_url' found in DataFrame columns.")
 
     max_workers = 12
 

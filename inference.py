@@ -117,7 +117,12 @@ if __name__ == "__main__":
 
     csv_path = 'data/my_test/input/ab实验真人-23个角色-character_id.csv'
     df = pd.read_csv(csv_path)
-    test_inputs = df['image_path'].tolist()
+    if 'image_path' in df.columns:
+        test_inputs = df['image_path'].tolist()
+    elif 'image_url' in df.columns:
+        test_inputs = df['image_url'].tolist()
+    else:
+        raise ValueError("Neither 'image_path' nor 'image_url' found in DataFrame columns.")
 
     anime_probs, real_probs, results, cost_times = [], [], [], []
     for input_data in tqdm(test_inputs):

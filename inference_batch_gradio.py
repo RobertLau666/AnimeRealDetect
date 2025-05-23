@@ -7,13 +7,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from inference import AnimeRealCls
 from utils import get_current_time
 import chardet
+import argparse
 
 
 def detect_encoding(file_path):
     with open(file_path, 'rb') as f:
         result = chardet.detect(f.read(10000))
     return result['encoding'] or 'utf-8'
-
 
 def process_single_input(classifier, input_data):
     try:
@@ -25,14 +25,18 @@ def process_single_input(classifier, input_data):
         print(f"Error processing {input_data}: {str(e)}")
         return None, None, 'error', 0.0
 
-
 def run_inference(csv_file):
     all_start_time = time.time()
 
     # 自动检测编码
     encoding = detect_encoding(csv_file.name)
     df = pd.read_csv(csv_file.name, encoding=encoding)
-    test_inputs = df['image_path'].tolist()
+    if 'image_path' in df.columns:
+        test_inputs = df['image_path'].tolist()
+    elif 'image_url' in df.columns:
+        test_inputs = df['image_url'].tolist()
+    else:
+        raise ValueError("Neither 'image_path' nor 'image_url' found in DataFrame columns.")
 
     output_dir = 'data/my_test/output'
     os.makedirs(output_dir, exist_ok=True)
@@ -72,19 +76,21 @@ def run_inference(csv_file):
 
     return output_filename
 
-
 def gradio_interface(csv_file):
     output_file = run_inference(csv_file)
     return output_file
 
 
-iface = gr.Interface(
-    fn=gradio_interface,
-    inputs=gr.File(label="上传 CSV 文件（包含 image_path 列）"),
-    outputs=gr.File(label="下载结果 CSV"),
-    title="Anime vs Real 分类器（批量推理）",
-    description="上传一个包含 image_path 列的 CSV 文件，点击按钮开始推理，完成后可下载结果文件。",
-)
-
 if __name__ == "__main__":
-    iface.launch(server_port=7879, share=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--server_port", type=int, default=7881, help="Port to launch the server on")
+    args = parser.parse_args()
+
+    iface = gr.Interface(
+        fn=gradio_interface,
+        inputs=gr.File(label="上传 CSV 文件（包含 image_path 或者 image_url 列）"),
+        outputs=gr.File(label="下载结果 CSV"),
+        title="Anime vs Real 分类器（批量推理）",
+        description="上传一个包含 image_path 或者 image_url 列的 CSV 文件，点击按钮开始推理，完成后可下载结果文件。",
+    )
+    iface.launch(server_port=args.server_port, share=True)
