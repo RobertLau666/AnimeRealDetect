@@ -119,7 +119,7 @@ class AnimeRealCls():
 if __name__ == "__main__":
     all_start_time = time.time()
     output_dir = 'data/my_test/output'
-    classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed")
+    classifier = AnimeRealCls(model_dir="model/caformer_s36_v1.3_fixed") # deepghs/anime_real_cls
     
     # 测试数据（包含本地路径和HTTP URL）
     # test_inputs = [
